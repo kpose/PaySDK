@@ -2,7 +2,7 @@
 //  FlutterwavePaymentConfig.swift
 //  FlutterwaveSDK
 //
-//  Created by kpose on 27/05/2025.
+//  Created by Jude Ganihu on 27/05/2025.
 //
 
 import Foundation
@@ -43,11 +43,8 @@ public struct FlutterwavePaymentConfig {
     public let customizations: Customizations?
     public let meta: [String: Any]?
     public let paymentOptions: String?
-    public let sessionDuration: Int?
-    public let maxRetryAttempt: Int?
 
     
-
     public init(
         txRef: String,
         amount: String,
@@ -56,9 +53,7 @@ public struct FlutterwavePaymentConfig {
         customer: Customer,
         customizations: Customizations? = nil,
         meta: [String: Any]? = nil,
-        paymentOptions: String? = nil,
-        sessionDuration: Int? = nil,
-        maxRetryAttempt: Int? = nil
+        paymentOptions: String? = nil
     ) {
         self.txRef = txRef
         self.amount = amount
@@ -68,7 +63,5 @@ public struct FlutterwavePaymentConfig {
         self.customizations = customizations
         self.meta = meta
         self.paymentOptions = paymentOptions
-        self.sessionDuration = sessionDuration
-        self.maxRetryAttempt = maxRetryAttempt
     }
 }

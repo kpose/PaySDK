@@ -1,22 +1,33 @@
-//
-//  File.swift
-//  FlutterwaveSDK
-//
-//  Created by kpose on 27/05/2025.
-//
-
 import Foundation
 
-class ApiClient {
+final class ApiClient {
     private let secretKey: String
+    private let baseURL = "https://api.flutterwave.com/v3"
 
     init(secretKey: String) {
         self.secretKey = secretKey
     }
-    
-    func createPayment(with config: FlutterwavePaymentConfig, completion: @escaping @Sendable (Result<URL, Error>) -> Void) {
-        guard let url = URL(string: "https://api.flutterwave.com/v3/payments") else {
-            return completion(.failure(NSError(domain: "Invalid URL", code: 400, userInfo: nil)))
+
+    func verifyPayment(transactionId: String) async throws -> [String: Any] {
+        guard let url = URL(string: "\(baseURL)/transactions/\(transactionId)/verify") else {
+            throw URLError(.badURL)
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(secretKey)", forHTTPHeaderField: "Authorization")
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw NSError(domain: "Invalid JSON", code: 500, userInfo: nil)
+        }
+
+        return json
+    }
+
+    func createPayment(with config: FlutterwavePaymentConfig) async throws -> URL {
+        guard let url = URL(string: "\(baseURL)/payments") else {
+            throw URLError(.badURL)
         }
 
         var request = URLRequest(url: url)
@@ -44,14 +55,6 @@ class ApiClient {
             ]
         }
 
-        if let session = config.sessionDuration {
-            body["session_duration"] = session
-        }
-
-        if let retry = config.maxRetryAttempt {
-            body["max_retry_attempt"] = retry
-        }
-
         if let meta = config.meta {
             body["meta"] = meta
         }
@@ -60,36 +63,18 @@ class ApiClient {
             body["payment_options"] = options
         }
 
-        do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
-        } catch {
-            return completion(.failure(error))
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, _) = try await URLSession.shared.data(for: request)
+        guard
+            let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let dataDict = json["data"] as? [String: Any],
+            let link = dataDict["link"] as? String,
+            let paymentURL = URL(string: link)
+        else {
+            throw NSError(domain: "Invalid payment response", code: 500, userInfo: nil)
         }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                return completion(.failure(error))
-            }
-
-            guard let data = data else {
-                return completion(.failure(NSError(domain: "Empty response", code: 500, userInfo: nil)))
-            }
-
-            do {
-                if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                   let data = json["data"] as? [String: Any],
-                   let link = data["link"] as? String,
-                   let url = URL(string: link) {
-                    completion(.success(url))
-                } else {
-                    throw NSError(domain: "Invalid JSON", code: 500, userInfo: nil)
-                }
-            } catch {
-                completion(.failure(error))
-            }
-        }.resume()
+        return paymentURL
     }
-
-
 }
-
